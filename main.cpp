@@ -128,16 +128,12 @@ void json_reconstruction(std::vector<SID> * candidates_ids,
 	std::cout << "]\n";
 }
 
-Spectrum * load_query(char * file) {
-	Spectrum *n = new Spectrum;
-	
-	MZ mz = 1;
-	while (mz < MAX_MZ) {
-		n->push_back(Peak(mz, 5));
-		mz += 3;
-	}
-	return n;
-	
+Spectrum * load_query(RawData * data) {
+
+    Spectrum *n = new Spectrum;
+    *n = *(data->begin());
+
+    return n;
 }
 
 Index * build_index(RawData * data) {
@@ -190,7 +186,8 @@ int main(int argc, char * argv[]) {
 	std::cerr << "raw_data=\n";
 	dump_raw_data(raw_data);
 
-	Spectrum *query = load_query(argv[2]);
+    //use query spectrum as the first spectrum from raw_data
+	Spectrum *query = load_query(raw_data);
 	std::cerr << "query=\n";
 	dump_spectrum(query);
 	std::cerr << "\n";

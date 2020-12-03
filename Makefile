@@ -6,4 +6,4 @@ default: main
 
 .PHONY:test
 test: main 
-	./main  |  ./check.py
+	./main aoeu aoeu aoeu |  ./check.py

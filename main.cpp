@@ -3,6 +3,7 @@
 #include<iostream>
 #include<iterator>
 #include<algorithm>
+#include<chrono>
 
 typedef unsigned int SID;
 typedef unsigned int Intensity;
@@ -37,50 +38,29 @@ RawData * load_raw_data() {
 }
 
 void dump_spectrum(Spectrum *s) {
-	std::cout << "[";
+	std::cerr << "[";
 	for(auto & p: *s) {
-		std::cout << "[" << p.first << ", " << p.second << "],";
+		std::cerr << "[" << p.first << ", " << p.second << "],";
 	}
-	std::cout << "]";
+	std::cerr << "]";
 }
 
 void dump_raw_data(RawData* r) {
 
 	int c = 0;
 	for(auto & s: *r) {
-		std::cout << "SID=" << c;
+		std::cerr << "SID=" << c;
 		dump_spectrum(&s);
 		c++;
-		std::cout << "\n";
+		std::cerr << "\n";
 	}
-}
-
-Index * build_index(RawData * data) {
-	Index *index = new Index;
-
-	for(MZ mz = 0; mz < MAX_MZ; mz++) {
-		index->push_back(Bucket());
-	}
-	
-	
-	for(SID sid = 0; sid < data->size(); sid++) {
-		for(auto & peak: (*data)[sid]) {
-			(*index)[peak.first].push_back(BucketPeak(sid, peak.second));
-		}
-	}
-
-	for(MZ mz = 0; mz < MAX_MZ; mz++) {
-		std::sort((*index)[mz].begin(), (*index)[mz].end());
-	}
-
-	return index;
 }
 
 void dump_index(Index *index) {
 	for(MZ mz = 0; mz < MAX_MZ; mz++) {
-		std::cout << "MZ = " << mz << ": ";
+		std::cerr << "MZ = " << mz << ": ";
 		dump_spectrum(&(*index)[mz]);
-		std::cout << "\n";
+		std::cerr << "\n";
 	}
 }
 
@@ -88,7 +68,7 @@ std::vector<SID> * load_candidates() {
 
 	std::vector<SID> * n = new std::vector<SID>;
 
-	for(SID i = 0; i < 1; i++) {
+	for(SID i = 0; i < 2; i++) {
 		n->push_back(i);
 	}
 
@@ -134,33 +114,31 @@ Spectrum * load_query() {
 	return n;
 	
 }
-int main() {
 
-	RawData * raw_data = load_raw_data();
+Index * build_index(RawData * data) {
+	Index *index = new Index;
 
-	std::cout << "raw_data=\n";
-	dump_raw_data(raw_data);
-	Index * index = build_index(raw_data);
-
-	dump_index(index);
-	
-	Spectrum *query = load_query();
-	
-	std::cout << "query=\n";
-	dump_spectrum(query);
-	std::cout << "\n";
-
-	std::vector<SID> * candidate_ids = load_candidates();
-
-	std::cout << "candidate_ids=\n";
-	for(auto & i: *candidate_ids) {
-		std::cout << i << ", ";
+	for(MZ mz = 0; mz < MAX_MZ; mz++) {
+		index->push_back(Bucket());
 	}
-	std::cout << "\n";
+	
+	
+	for(SID sid = 0; sid < data->size(); sid++) {
+		for(auto & peak: (*data)[sid]) {
+			(*index)[peak.first].push_back(BucketPeak(sid, peak.second));
+		}
+	}
 
+	for(MZ mz = 0; mz < MAX_MZ; mz++) {
+		std::sort((*index)[mz].begin(), (*index)[mz].end());
+	}
 
-	std::map<SID, Spectrum> reconstructed_spectra;
+	return index;
+}
 
+std::map<SID, Spectrum> *reconstruct_candidates(Index * index, Spectrum * query, std::vector<SID> * candidate_ids) {
+	
+	std::map<SID, Spectrum> * reconstructed_spectra = new std::map<SID, Spectrum>;
 	for(auto &sid : *candidate_ids) {
 		Spectrum s;
 		for(auto & query_peak: *query) {
@@ -170,9 +148,45 @@ int main() {
 				}
 			}
 		}
-		reconstructed_spectra[sid] = s;
+		(*reconstructed_spectra)[sid] = s;
 	}
+	return reconstructed_spectra;
+}
 
-	json_reconstruction(candidate_ids, reconstructed_spectra);
+
+int main() {
+
+
+	RawData * raw_data = load_raw_data();
+	std::cerr << "raw_data=\n";
+	dump_raw_data(raw_data);
+
+	Spectrum *query = load_query();
+	std::cerr << "query=\n";
+	dump_spectrum(query);
+	std::cerr << "\n";
+
+	std::vector<SID> * candidate_ids = load_candidates();
+
+	std::cerr << "candidate_ids=\n";
+	for(auto & i: *candidate_ids) {
+		std::cerr << i << ", ";
+	}
+	std::cerr << "\n";
+
+	// Here's where the interesting part starts
+
+	auto index_build_start = std::chrono::high_resolution_clock::now();
+	Index * index = build_index(raw_data);
+	auto index_build_end = std::chrono::high_resolution_clock::now();
+
+	dump_index(index);
+
+	auto reconstruct_start = std::chrono::high_resolution_clock::now();
+	auto reconstructed_spectra = reconstruct_candidates(index, query, candidate_ids);
+	auto reconstruct_end = std::chrono::high_resolution_clock::now();	
+	json_reconstruction(candidate_ids, *reconstructed_spectra);
+	std::cerr << "Building the index took " << (std::chrono::duration_cast<std::chrono::nanoseconds>(index_build_end - index_build_start).count()+0.0)/1e9 << " s\n";
+	std::cerr << "Reconstruction took     " << (std::chrono::duration_cast<std::chrono::nanoseconds>(reconstruct_end - reconstruct_start).count()+0.0)/1e9 << " s\n";
 }
 

@@ -2,6 +2,7 @@
 #include<map>
 #include<iostream>
 #include<iterator>
+#include<algorithm>
 
 typedef unsigned int SID;
 typedef unsigned int Intensity;
@@ -17,43 +18,103 @@ typedef std::vector<BucketPeak> Bucket;
 
 typedef std::vector<Bucket> Index;
 
+static const MZ MAX_MZ = 20;
+
 RawData * load_raw_data() {
-	return NULL;
+	
+	RawData * n = new RawData;
+
+	for (unsigned int i = 2; i < 12; i++) {
+		Spectrum s;
+		MZ mz = 1;
+		while (mz < MAX_MZ) {
+			s.push_back(Peak(mz, i));
+			mz += i;
+		}
+		n->push_back(s);
+	}
+	return n;
+}
+
+void dump_spectrum(Spectrum *s) {
+	std::cout << "[";
+	for(auto & p: *s) {
+		std::cout << "[" << p.first << ", " << p.second << "],";
+	}
+	std::cout << "]";
+}
+
+void dump_raw_data(RawData* r) {
+
+	int c = 0;
+	for(auto & s: *r) {
+		std::cout << "SID=" << c;
+		dump_spectrum(&s);
+		c++;
+		std::cout << "\n";
+	}
 }
 
 Index * build_index(RawData * data) {
-	return NULL;
+	Index *index = new Index;
+
+	for(MZ mz = 0; mz < MAX_MZ; mz++) {
+		index->push_back(Bucket());
+	}
+	
+	
+	for(SID sid = 0; sid < data->size(); sid++) {
+		for(auto & peak: (*data)[sid]) {
+			(*index)[peak.first].push_back(BucketPeak(sid, peak.second));
+		}
+	}
+
+	for(MZ mz = 0; mz < MAX_MZ; mz++) {
+		std::sort((*index)[mz].begin(), (*index)[mz].end());
+	}
+
+	return index;
+}
+
+void dump_index(Index *index) {
+	for(MZ mz = 0; mz < MAX_MZ; mz++) {
+		std::cout << "MZ = " << mz << ": ";
+		dump_spectrum(&(*index)[mz]);
+		std::cout << "\n";
+	}
 }
 
 std::vector<SID> * load_candidates() {
 
 	std::vector<SID> * n = new std::vector<SID>;
 
-	for(SID i = 0; i < 10; i++) {
+	for(SID i = 0; i < 1; i++) {
 		n->push_back(i);
 	}
 
 	return n;
 }
 
-void dump_reconstruction(std::vector<SID> * candidates_ids,
+
+
+void json_reconstruction(std::vector<SID> * candidates_ids,
 			 std::map<SID, Spectrum> &reconstructed_spectra) {
 	std::cout << "[\n";
 
-	for(auto i = candidates_ids->begin(); i != candidates_ids->end(); i++) {
+	for(auto sid = candidates_ids->begin(); sid != candidates_ids->end(); sid++) {
 		
 		std::cout << "\t{ " << "";
-		std::cout << "\"" << *i << "\": " << "[\n";
-		for (auto j = reconstructed_spectra[*i].begin(); j != reconstructed_spectra[*i].end(); j++) {
+		std::cout << "\"" << *sid << "\": " << "[\n";
+		for (auto j = reconstructed_spectra[*sid].begin(); j != reconstructed_spectra[*sid].end(); j++) {
 			std::cout << "\t\t\t[ " << j->first << ", " << j->second << " ]";
-			if (std::next(j) != reconstructed_spectra[*i].end()) {
+			if (std::next(j) != reconstructed_spectra[*sid].end()) {
 				std::cout<<  ",";
 			}
 			std::cout << "\n";
 		}
 		std::cout << "\t\t]\n";
 		std::cout << "\t}";
-		if (std::next(i) != candidates_ids->end()) {
+		if (std::next(sid) != candidates_ids->end()) {
 			std::cout << ",";
 		}
 		std::cout << "\n";
@@ -62,22 +123,56 @@ void dump_reconstruction(std::vector<SID> * candidates_ids,
 	std::cout << "]\n";
 }
 
+Spectrum * load_query() {
+	Spectrum *n = new Spectrum;
+	
+	MZ mz = 1;
+	while (mz < MAX_MZ) {
+		n->push_back(Peak(mz, 5));
+		mz += 3;
+	}
+	return n;
+	
+}
 int main() {
 
 	RawData * raw_data = load_raw_data();
 
+	std::cout << "raw_data=\n";
+	dump_raw_data(raw_data);
 	Index * index = build_index(raw_data);
 
-	std::vector<SID> * candidates_ids = load_candidates();
+	dump_index(index);
+	
+	Spectrum *query = load_query();
+	
+	std::cout << "query=\n";
+	dump_spectrum(query);
+	std::cout << "\n";
+
+	std::vector<SID> * candidate_ids = load_candidates();
+
+	std::cout << "candidate_ids=\n";
+	for(auto & i: *candidate_ids) {
+		std::cout << i << ", ";
+	}
+	std::cout << "\n";
+
 
 	std::map<SID, Spectrum> reconstructed_spectra;
 
-	for(auto i = candidates_ids->begin(); i != candidates_ids->end(); i++) {
+	for(auto &sid : *candidate_ids) {
 		Spectrum s;
-		s.push_back(Peak(0,10));
-		reconstructed_spectra[*i] = s;
+		for(auto & query_peak: *query) {
+			for(auto & bucket_peak : (*index)[query_peak.first]) {
+				if (bucket_peak.first == sid) {
+					s.push_back(Peak(query_peak.first, bucket_peak.second));
+				}
+			}
+		}
+		reconstructed_spectra[sid] = s;
 	}
 
-	dump_reconstruction(candidates_ids, reconstructed_spectra);
+	json_reconstruction(candidate_ids, reconstructed_spectra);
 }
 

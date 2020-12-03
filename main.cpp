@@ -146,7 +146,8 @@ Index * build_index(RawData * data) {
 	
 	for(SID sid = 0; sid < data->size(); sid++) {
 		for(auto & peak: (*data)[sid]) {
-			(*index)[peak.first].push_back(BucketPeak(sid, peak.second));
+			unit_frag = peak.first/num_buckets; //One mz has 20 bins
+            (*index)[unit_frag].push_back(BucketPeak(sid, peak.second));
 		}
 	}
 

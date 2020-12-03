@@ -79,28 +79,25 @@ std::vector<SID> * load_candidates(char*file) {
 
 void json_reconstruction(std::vector<SID> * candidates_ids,
 			 std::map<SID, Spectrum> &reconstructed_spectra) {
-	std::cout << "[\n";
-
+	std::cout << "{\n";
 	for(auto sid = candidates_ids->begin(); sid != candidates_ids->end(); sid++) {
 		
-		std::cout << "\t{ " << "";
-		std::cout << "\"" << *sid << "\": " << "[\n";
+		std::cout << "\t\"" << *sid << "\": " << "[\n";
 		for (auto j = reconstructed_spectra[*sid].begin(); j != reconstructed_spectra[*sid].end(); j++) {
-			std::cout << "\t\t\t[ " << j->first << ", " << j->second << " ]";
+			std::cout << "\t\t[ " << j->first << ", " << j->second << " ]";
 			if (std::next(j) != reconstructed_spectra[*sid].end()) {
 				std::cout<<  ",";
 			}
 			std::cout << "\n";
 		}
-		std::cout << "\t\t]\n";
-		std::cout << "\t}";
+		std::cout << "\t]";
+
 		if (std::next(sid) != candidates_ids->end()) {
 			std::cout << ",";
 		}
 		std::cout << "\n";
 	}
-	
-	std::cout << "]\n";
+	std::cout << "}\n";
 }
 
 Spectrum * load_query(char * file) {

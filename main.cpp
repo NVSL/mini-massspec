@@ -19,22 +19,47 @@ typedef std::vector<BucketPeak> Bucket;
 
 typedef std::vector<Bucket> Index;
 
-static const MZ MAX_MZ = 20;
+static const MZ MAX_MZ = 2000;
+static const int num_buckets = 20; //# of bins per mz used for index
 
 RawData * load_raw_data(char *file) {
-	
-	RawData * n = new RawData;
+    RawData * spectra = new RawData();
+    unsigned int file_id;
+    unsigned int num_spectra;           //total number of spectra inside the file
+    unsigned int offset;                //starting offset from the file
+    std::vector< std :: pair<unsigned int, unsigned int> > position; // starting position and ending position for each spectrum
 
-	for (unsigned int i = 2; i < 12; i++) {
-		Spectrum s;
-		MZ mz = 1;
-		while (mz < MAX_MZ) {
-			s.push_back(Peak(mz, i));
-			mz += i;
-		}
-		n->push_back(s);
-	}
-	return n;
+    std::ifstream in(file, std::ios::in | std::ios::binary);
+    in.read((char*)&file_id, sizeof( unsigned int ));
+    in.read((char*)&num_spectra, sizeof( unsigned int ));
+    position.resize(num_spectra);
+
+    if (num_spectra > 0) {
+        position[0].first = num_spectra + 2; //starting offset in the file of the first spectrum
+        in.read((char *) &position[0].second, sizeof(unsigned int)); //ending position of the first spectrum
+
+        for (unsigned int spec_idx = 1; spec_idx < num_spectra; ++spec_idx) {
+            position[spec_idx].first = position[spec_idx - 1].second;  //starting position
+            in.read((char *) &position[spec_idx].second, sizeof(unsigned int)); //ending position
+        }
+
+        for (unsigned int spec_idx = 0; spec_idx < num_spectra; ++spec_idx) {
+            in.seekg(position[0].first * 4 + 16); //setting the position to read to the first spectrum
+            unsigned int size = position[spec_idx].second - position[spec_idx].first - 4;
+            Spectrum spectrum;
+            //Populating peak info per spectrum
+            for (int i = 0; i < size; ++i) {
+                unsigned int peak;
+                unsigned int mz;
+                in.read((char *) &peak, sizeof(unsigned int));
+                mz = peak >> 8;
+                spectrum.push_back(Peak(mz,peak - (mz<<8)));
+            }
+            spectra -> push_back(spectrum);
+        }
+    }
+    in.close();
+    return spectra;
 }
 
 void dump_spectrum(Spectrum *s) {

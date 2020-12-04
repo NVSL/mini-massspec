@@ -4,6 +4,8 @@
 #include<iterator>
 #include<algorithm>
 #include<chrono>
+#include<fstream>
+#include <sstream>
 
 typedef unsigned int SID;
 typedef unsigned int Intensity;
@@ -89,44 +91,36 @@ void dump_index(Index *index) {
 	}
 }
 
-std::vector<SID> * load_candidates(char*file) {
 
-	std::vector<SID> * n = new std::vector<SID>;
+void json_reconstruction( std::map<SID, Spectrum> &reconstructed_spectra) {
+    std::cout << "[\n";
 
-	for(SID i = 0; i < 2; i++) {
-		n->push_back(i);
-	}
+    auto end = reconstructed_spectra.end();
 
-	return n;
+    for(const auto &[sid, spectrum]:reconstructed_spectra) {
+
+        std::cout << "\t{ " << "";
+        std::cout << "\"" << sid << "\": " << "[\n";
+        for (auto j = spectrum.begin(); j != spectrum.end(); j++) {
+            std::cout << "\t\t\t[ " << j->first << ", " << j->second << " ]";
+            if (std::next(j) != spectrum.end()) {
+                std::cout<<  ",";
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\t\t]\n";
+        std::cout << "\t}";
+
+        if (&sid != &reconstructed_spectra.rbegin()->first) {
+            std::cout << ",";
+        }
+
+        std::cout << "\n";
+    }
+
+    std::cout << "]\n";
 }
 
-
-
-void json_reconstruction(std::vector<SID> * candidates_ids,
-			 std::map<SID, Spectrum> &reconstructed_spectra) {
-	std::cout << "[\n";
-
-	for(auto sid = candidates_ids->begin(); sid != candidates_ids->end(); sid++) {
-		
-		std::cout << "\t{ " << "";
-		std::cout << "\"" << *sid << "\": " << "[\n";
-		for (auto j = reconstructed_spectra[*sid].begin(); j != reconstructed_spectra[*sid].end(); j++) {
-			std::cout << "\t\t\t[ " << j->first << ", " << j->second << " ]";
-			if (std::next(j) != reconstructed_spectra[*sid].end()) {
-				std::cout<<  ",";
-			}
-			std::cout << "\n";
-		}
-		std::cout << "\t\t]\n";
-		std::cout << "\t}";
-		if (std::next(sid) != candidates_ids->end()) {
-			std::cout << ",";
-		}
-		std::cout << "\n";
-	}
-	
-	std::cout << "]\n";
-}
 
 Spectrum * load_query(char*file) {
     Spectrum *n = new Spectrum;
@@ -146,42 +140,40 @@ Spectrum * load_query(char*file) {
 }
 
 Index * build_index(RawData * data) {
-	Index *index = new Index;
+    Index *index = new Index;
 
-	for(MZ mz = 0; mz < MAX_MZ; mz++) {
-		index->push_back(Bucket());
-	}
-	
-	
-	for(SID sid = 0; sid < data->size(); sid++) {
-		for(auto & peak: (*data)[sid]) {
-			unit_frag = peak.first/num_buckets; //One mz has 20 bins
+    for(MZ mz = 0; mz < MAX_MZ; mz++) {
+        index->push_back(Bucket());
+    }
+
+    unsigned int unit_frag;
+
+    for(SID sid = 0; sid < data->size(); sid++) {
+        for(auto & peak: (*data)[sid]) {
+            unit_frag = peak.first/num_buckets;
             (*index)[unit_frag].push_back(BucketPeak(sid, peak.second));
-		}
-	}
+        }
+    }
 
-	for(MZ mz = 0; mz < MAX_MZ; mz++) {
-		std::sort((*index)[mz].begin(), (*index)[mz].end());
-	}
+    for(MZ mz = 0; mz < MAX_MZ; mz++) {
+        std::sort((*index)[mz].begin(), (*index)[mz].end());
+    }
 
-	return index;
+    return index;
 }
 
-std::map<SID, Spectrum> *reconstruct_candidates(Index * index, Spectrum * query, std::vector<SID> * candidate_ids) {
-	
-	std::map<SID, Spectrum> * reconstructed_spectra = new std::map<SID, Spectrum>;
-	for(auto &sid : *candidate_ids) {
-		Spectrum s;
-		for(auto & query_peak: *query) {
-			for(auto & bucket_peak : (*index)[query_peak.first]) {
-				if (bucket_peak.first == sid) {
-					s.push_back(Peak(query_peak.first, bucket_peak.second));
-				}
-			}
-		}
-		(*reconstructed_spectra)[sid] = s;
-	}
-	return reconstructed_spectra;
+std::map<SID, Spectrum> *reconstruct_candidates(Index * index, Spectrum * query) {
+
+    std::map<SID, Spectrum> * reconstructed_spectra = new std::map<SID, Spectrum>;
+
+    for(auto & query_peak: *query) {
+        unsigned int unit_q_mz = query_peak.first / num_buckets;
+        for(auto & bucket_peak : (*index)[unit_q_mz]) {
+            (*reconstructed_spectra)[bucket_peak.first].push_back(Peak(query_peak.first, bucket_peak.second));
+        }
+    }
+
+    return reconstructed_spectra;
 }
 
 
@@ -214,9 +206,9 @@ int main(int argc, char * argv[]) {
 	dump_index(index);
 
 	auto reconstruct_start = std::chrono::high_resolution_clock::now();
-	auto reconstructed_spectra = reconstruct_candidates(index, query, candidate_ids);
+	auto reconstructed_spectra = reconstruct_candidates(index, query);
 	auto reconstruct_end = std::chrono::high_resolution_clock::now();	
-	json_reconstruction(candidate_ids, *reconstructed_spectra);
+	json_reconstruction(*reconstructed_spectra);
 
     std::cerr << "Found " << reconstructed_spectra->size() << " candidates \n";
 	std::cerr << "Building the index took " << (std::chrono::duration_cast<std::chrono::nanoseconds>(index_build_end - index_build_start).count()+0.0)/1e9 << " s\n";

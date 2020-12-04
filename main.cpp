@@ -128,11 +128,20 @@ void json_reconstruction(std::vector<SID> * candidates_ids,
 	std::cout << "]\n";
 }
 
-Spectrum * load_query(RawData * data) {
-
+Spectrum * load_query(char*file) {
     Spectrum *n = new Spectrum;
-    *n = *(data->begin());
+    std::ifstream in(file);
+    std::string line;
 
+    while (std::getline(in, line)) {
+        std::vector<unsigned int> lineData;
+        std::stringstream lineStream(line);
+        unsigned int value;
+        while (lineStream >> value) {
+            lineData.push_back(value);
+        }
+        n->push_back(Peak(lineData[0], lineData[1]));
+    }
     return n;
 }
 
@@ -178,8 +187,8 @@ std::map<SID, Spectrum> *reconstruct_candidates(Index * index, Spectrum * query,
 
 int main(int argc, char * argv[]) {
 
-	if (argc != 4) {
-		std::cerr << "Usage: main <raw data file> <query file> <candidates file>\n";
+	if (argc != 3) {
+		std::cerr << "Usage: main <raw data file> <query file>\n";
 		exit(1);
 	}
 
@@ -187,19 +196,12 @@ int main(int argc, char * argv[]) {
 	std::cerr << "raw_data=\n";
 	dump_raw_data(raw_data);
 
-    //use query spectrum as the first spectrum from raw_data
-	Spectrum *query = load_query(raw_data);
+ 
+	Spectrum *query = load_query(argv[2]);
 	std::cerr << "query=\n";
 	dump_spectrum(query);
 	std::cerr << "\n";
 
-	std::vector<SID> * candidate_ids = load_candidates(argv[3]);
-
-	std::cerr << "candidate_ids=\n";
-	for(auto & i: *candidate_ids) {
-		std::cerr << i << ", ";
-	}
-	std::cerr << "\n";
 
 	// Here's where the interesting part starts
 
@@ -216,6 +218,7 @@ int main(int argc, char * argv[]) {
 	auto reconstruct_end = std::chrono::high_resolution_clock::now();	
 	json_reconstruction(candidate_ids, *reconstructed_spectra);
 
+    std::cerr << "Found " << reconstructed_spectra->size() << " candidates \n";
 	std::cerr << "Building the index took " << (std::chrono::duration_cast<std::chrono::nanoseconds>(index_build_end - index_build_start).count()+0.0)/1e9 << " s\n";
 	std::cerr << "Reconstruction took     " << (std::chrono::duration_cast<std::chrono::nanoseconds>(reconstruct_end - reconstruct_start).count()+0.0)/1e9 << " s\n";
 }

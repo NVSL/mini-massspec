@@ -115,6 +115,7 @@ void json_reconstruction( std::map<SID, Spectrum> &reconstructed_spectra) {
             std::cout << ",";
         }
 
+
         std::cout << "\n";
     }
 

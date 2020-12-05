@@ -7,7 +7,7 @@ default: main
 setup: data/804.mxs
 
 data/804.mxs: data/804.mxs.gz
-	gunzip $<
+	gunzip -k $<
 
 .PHONY:test
 test: main  data/804.mxs

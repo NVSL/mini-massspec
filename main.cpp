@@ -92,36 +92,41 @@ void dump_index(Index *index) {
 }
 
 
-void json_reconstruction(char * file, std::map<SID, Spectrum> &reconstructed_spectra) {
+void json_reconstruction(char * file, const std::vector<std::map<SID, Spectrum>> &reconstructed_spectra) {
 
 	std::ofstream out(file, std::ios::out);
 	
+
+	//auto end = reconstructed_spectra.end();
 	out << "[\n";
-
-	auto end = reconstructed_spectra.end();
-
-	for(const auto &[sid, spectrum]:reconstructed_spectra) {
-
-		out << "\t{ " << "";
-		out << "\"" << sid << "\": " << "[\n";
-		for (auto j = spectrum.begin(); j != spectrum.end(); j++) {
-			out << "\t\t\t[ " << j->first << ", " << j->second << " ]";
-			if (std::next(j) != spectrum.end()) {
-				out<<  ",";
+	for(const auto & queries_results: reconstructed_spectra) {
+		out << "[\n";
+		for(const auto &[sid, spectrum]:queries_results) {
+			
+			out << "\t{ " << "";
+			out << "\"" << sid << "\": " << "[\n";
+			for (auto j = spectrum.begin(); j != spectrum.end(); j++) {
+				out << "\t\t\t[ " << j->first << ", " << j->second << " ]";
+				if (std::next(j) != spectrum.end()) {
+					out<<  ",";
+				}
+				out << "\n";
 			}
+			out << "\t\t]\n";
+			out << "\t}";
+			
+			if (&sid != &queries_results.rbegin()->first) {
+				out << ",";
+			}
+
 			out << "\n";
 		}
-		out << "\t\t]\n";
-		out << "\t}";
-
-		if (&sid != &reconstructed_spectra.rbegin()->first) {
+		out << "]";
+		if (&queries_results != &*reconstructed_spectra.rbegin()) {
 			out << ",";
 		}
-
-
 		out << "\n";
 	}
-
 	out << "]\n";
 }
 
@@ -139,6 +144,29 @@ Spectrum * load_query(char*file) {
 			lineData.push_back(value);
 		}
 		n->push_back(Peak(lineData[0], lineData[1]));
+	}
+	return n;
+}
+
+std::vector<Spectrum> * load_queries(char*file) {
+	auto n = new std::vector<Spectrum>;
+	
+	std::ifstream in(file);
+	std::string line;
+
+	int spectra_count = 0;
+	in >> spectra_count;
+	for(int i = 0; i < spectra_count; i++) {
+		Spectrum s;
+		int peak_count;
+		in >> peak_count;
+		for (int p = 0; p < peak_count; p++) {
+			MZ mz;
+			Intensity intensity;
+			in >> mz >> intensity;
+			s.push_back(Peak(mz, intensity));
+		}
+		n->push_back(s);
 	}
 	return n;
 }
@@ -166,15 +194,19 @@ Index * build_index(RawData * data) {
 	return index;
 }
 
-std::map<SID, Spectrum> *reconstruct_candidates(Index * index, Spectrum * query) {
+std::vector<std::map<SID, Spectrum>> *reconstruct_candidates(Index * index, const std::vector<Spectrum> & queries) {
 
-	std::map<SID, Spectrum> * reconstructed_spectra = new std::map<SID, Spectrum>;
+	auto reconstructed_spectra = new std::vector<std::map<SID, Spectrum>>;
 
-	for(auto & query_peak: *query) {
-		unsigned int unit_q_mz = query_peak.first / num_buckets;
-		for(auto & bucket_peak : (*index)[unit_q_mz]) {
-			(*reconstructed_spectra)[bucket_peak.first].push_back(Peak(query_peak.first, bucket_peak.second));
+	for(auto & query: queries) {
+		std::map<SID, Spectrum> m;
+		for(auto & query_peak: query) {
+			unsigned int unit_q_mz = query_peak.first / num_buckets;
+			for(auto & bucket_peak : (*index)[unit_q_mz]) {
+				m[bucket_peak.first].push_back(Peak(query_peak.first, bucket_peak.second));
+			}
 		}
+		reconstructed_spectra->push_back(m);
 	}
 
 	return reconstructed_spectra;
@@ -192,10 +224,13 @@ int main(int argc, char * argv[]) {
 	// std::cerr << "raw_data=\n";
 	// dump_raw_data(raw_data);
 
-	Spectrum *query = load_query(argv[2]);
-	// std::cerr << "query=\n";
-	// dump_spectrum(query);
-	// std::cerr << "\n";
+	std::vector<Spectrum> *queries = load_queries(argv[2]);
+	std::cerr << "queries=\n";
+	for(auto &s: *queries) {
+		dump_spectrum(&s);
+		std::cerr << "\n";
+	}
+	std::cerr << "\n";
 
 	// Here's where the interesting part starts
 
@@ -208,7 +243,7 @@ int main(int argc, char * argv[]) {
 	// dump_index(index);
 
 	auto reconstruct_start = std::chrono::high_resolution_clock::now();
-	auto reconstructed_spectra = reconstruct_candidates(index, query);
+	auto reconstructed_spectra = reconstruct_candidates(index, *queries);
 	auto reconstruct_end = std::chrono::high_resolution_clock::now();	
 	json_reconstruction(argv[3], *reconstructed_spectra);
 

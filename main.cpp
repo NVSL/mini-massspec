@@ -185,14 +185,14 @@ int main(int argc, char * argv[]) {
 	}
 
 	RawData * raw_data = load_raw_data(argv[1]);
-	std::cerr << "raw_data=\n";
-	dump_raw_data(raw_data);
+	// std::cerr << "raw_data=\n";
+	// dump_raw_data(raw_data);
 
  
 	Spectrum *query = load_query(argv[2]);
-	std::cerr << "query=\n";
-	dump_spectrum(query);
-	std::cerr << "\n";
+	// std::cerr << "query=\n";
+	// dump_spectrum(query);
+	// std::cerr << "\n";
 
 
 	// Here's where the interesting part starts
@@ -203,14 +203,14 @@ int main(int argc, char * argv[]) {
 
 	delete raw_data;
 		
-	dump_index(index);
+	// dump_index(index);
 
 	auto reconstruct_start = std::chrono::high_resolution_clock::now();
 	auto reconstructed_spectra = reconstruct_candidates(index, query);
 	auto reconstruct_end = std::chrono::high_resolution_clock::now();	
 	json_reconstruction(*reconstructed_spectra);
 
-    std::cerr << "Found " << reconstructed_spectra->size() << " candidates \n";
+	std::cerr << "Found " << reconstructed_spectra->size() << " candidates \n";
 	std::cerr << "Building the index took " << (std::chrono::duration_cast<std::chrono::nanoseconds>(index_build_end - index_build_start).count()+0.0)/1e9 << " s\n";
 	std::cerr << "Reconstruction took     " << (std::chrono::duration_cast<std::chrono::nanoseconds>(reconstruct_end - reconstruct_start).count()+0.0)/1e9 << " s\n";
 }

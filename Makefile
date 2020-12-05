@@ -7,3 +7,7 @@ default: main
 .PHONY:test
 test: main 
 	./main aoeu aoeu aoeu |  ./check.py
+
+.PHONY: clean
+clean:
+	rm -rf main

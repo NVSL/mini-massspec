@@ -46,7 +46,7 @@ RawData * load_raw_data(char *file) {
         }
 
         for (unsigned int spec_idx = 0; spec_idx < num_spectra; ++spec_idx) {
-            in.seekg(position[0].first * 4 + 16); //setting the position to read to the first spectrum
+            in.seekg(position[spec_idx].first * 4 + 16); //setting the position to read to the first spectrum
             unsigned int size = position[spec_idx].second - position[spec_idx].first - 4;
             Spectrum spectrum;
             //Populating peak info per spectrum
@@ -147,18 +147,17 @@ Index * build_index(RawData * data) {
     }
 
     unsigned int unit_frag;
-
     for(SID sid = 0; sid < data->size(); sid++) {
         for(auto & peak: (*data)[sid]) {
             unit_frag = peak.first/num_buckets;
-            (*index)[unit_frag].push_back(BucketPeak(sid, peak.second));
+            if (unit_frag < MAX_MZ) {
+                (*index)[unit_frag].push_back(BucketPeak(sid, peak.second));
+            }
         }
     }
-
     for(MZ mz = 0; mz < MAX_MZ; mz++) {
         std::sort((*index)[mz].begin(), (*index)[mz].end());
     }
-
     return index;
 }
 

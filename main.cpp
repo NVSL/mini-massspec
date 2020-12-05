@@ -25,43 +25,43 @@ static const MZ MAX_MZ = 2000;
 static const int num_buckets = 20; //# of bins per mz used for index
 
 RawData * load_raw_data(char *file) {
-    RawData * spectra = new RawData();
-    unsigned int file_id;
-    unsigned int num_spectra;           //total number of spectra inside the file
-    unsigned int offset;                //starting offset from the file
-    std::vector< std :: pair<unsigned int, unsigned int> > position; // starting position and ending position for each spectrum
+	RawData * spectra = new RawData();
+	unsigned int file_id;
+	unsigned int num_spectra;           //total number of spectra inside the file
+	unsigned int offset;                //starting offset from the file
+	std::vector< std :: pair<unsigned int, unsigned int> > position; // starting position and ending position for each spectrum
 
-    std::ifstream in(file, std::ios::in | std::ios::binary);
-    in.read((char*)&file_id, sizeof( unsigned int ));
-    in.read((char*)&num_spectra, sizeof( unsigned int ));
-    position.resize(num_spectra);
+	std::ifstream in(file, std::ios::in | std::ios::binary);
+	in.read((char*)&file_id, sizeof( unsigned int ));
+	in.read((char*)&num_spectra, sizeof( unsigned int ));
+	position.resize(num_spectra);
 
-    if (num_spectra > 0) {
-        position[0].first = num_spectra + 2; //starting offset in the file of the first spectrum
-        in.read((char *) &position[0].second, sizeof(unsigned int)); //ending position of the first spectrum
+	if (num_spectra > 0) {
+		position[0].first = num_spectra + 2; //starting offset in the file of the first spectrum
+		in.read((char *) &position[0].second, sizeof(unsigned int)); //ending position of the first spectrum
 
-        for (unsigned int spec_idx = 1; spec_idx < num_spectra; ++spec_idx) {
-            position[spec_idx].first = position[spec_idx - 1].second;  //starting position
-            in.read((char *) &position[spec_idx].second, sizeof(unsigned int)); //ending position
-        }
+		for (unsigned int spec_idx = 1; spec_idx < num_spectra; ++spec_idx) {
+			position[spec_idx].first = position[spec_idx - 1].second;  //starting position
+			in.read((char *) &position[spec_idx].second, sizeof(unsigned int)); //ending position
+		}
 
-        for (unsigned int spec_idx = 0; spec_idx < num_spectra; ++spec_idx) {
-            in.seekg(position[0].first * 4 + 16); //setting the position to read to the first spectrum
-            unsigned int size = position[spec_idx].second - position[spec_idx].first - 4;
-            Spectrum spectrum;
-            //Populating peak info per spectrum
-            for (int i = 0; i < size; ++i) {
-                unsigned int peak;
-                unsigned int mz;
-                in.read((char *) &peak, sizeof(unsigned int));
-                mz = peak >> 8;
-                spectrum.push_back(Peak(mz,peak - (mz<<8)));
-            }
-            spectra -> push_back(spectrum);
-        }
-    }
-    in.close();
-    return spectra;
+		for (unsigned int spec_idx = 0; spec_idx < num_spectra; ++spec_idx) {
+			in.seekg(position[0].first * 4 + 16); //setting the position to read to the first spectrum
+			unsigned int size = position[spec_idx].second - position[spec_idx].first - 4;
+			Spectrum spectrum;
+			//Populating peak info per spectrum
+			for (int i = 0; i < size; ++i) {
+				unsigned int peak;
+				unsigned int mz;
+				in.read((char *) &peak, sizeof(unsigned int));
+				mz = peak >> 8;
+				spectrum.push_back(Peak(mz,peak - (mz<<8)));
+			}
+			spectra -> push_back(spectrum);
+		}
+	}
+	in.close();
+	return spectra;
 }
 
 void dump_spectrum(Spectrum *s) {
@@ -92,96 +92,99 @@ void dump_index(Index *index) {
 }
 
 
-void json_reconstruction( std::map<SID, Spectrum> &reconstructed_spectra) {
-    std::cout << "[\n";
+void json_reconstruction(char * file, std::map<SID, Spectrum> &reconstructed_spectra) {
 
-    auto end = reconstructed_spectra.end();
+	std::ofstream out(file, std::ios::out);
+	
+	out << "[\n";
 
-    for(const auto &[sid, spectrum]:reconstructed_spectra) {
+	auto end = reconstructed_spectra.end();
 
-        std::cout << "\t{ " << "";
-        std::cout << "\"" << sid << "\": " << "[\n";
-        for (auto j = spectrum.begin(); j != spectrum.end(); j++) {
-            std::cout << "\t\t\t[ " << j->first << ", " << j->second << " ]";
-            if (std::next(j) != spectrum.end()) {
-                std::cout<<  ",";
-            }
-            std::cout << "\n";
-        }
-        std::cout << "\t\t]\n";
-        std::cout << "\t}";
+	for(const auto &[sid, spectrum]:reconstructed_spectra) {
 
-        if (&sid != &reconstructed_spectra.rbegin()->first) {
-            std::cout << ",";
-        }
+		out << "\t{ " << "";
+		out << "\"" << sid << "\": " << "[\n";
+		for (auto j = spectrum.begin(); j != spectrum.end(); j++) {
+			out << "\t\t\t[ " << j->first << ", " << j->second << " ]";
+			if (std::next(j) != spectrum.end()) {
+				out<<  ",";
+			}
+			out << "\n";
+		}
+		out << "\t\t]\n";
+		out << "\t}";
+
+		if (&sid != &reconstructed_spectra.rbegin()->first) {
+			out << ",";
+		}
 
 
-        std::cout << "\n";
-    }
+		out << "\n";
+	}
 
-    std::cout << "]\n";
+	out << "]\n";
 }
 
 
 Spectrum * load_query(char*file) {
-    Spectrum *n = new Spectrum;
-    std::ifstream in(file);
-    std::string line;
+	Spectrum *n = new Spectrum;
+	std::ifstream in(file);
+	std::string line;
 
-    while (std::getline(in, line)) {
-        std::vector<unsigned int> lineData;
-        std::stringstream lineStream(line);
-        unsigned int value;
-        while (lineStream >> value) {
-            lineData.push_back(value);
-        }
-        n->push_back(Peak(lineData[0], lineData[1]));
-    }
-    return n;
+	while (std::getline(in, line)) {
+		std::vector<unsigned int> lineData;
+		std::stringstream lineStream(line);
+		unsigned int value;
+		while (lineStream >> value) {
+			lineData.push_back(value);
+		}
+		n->push_back(Peak(lineData[0], lineData[1]));
+	}
+	return n;
 }
 
 Index * build_index(RawData * data) {
-    Index *index = new Index;
+	Index *index = new Index;
 
-    for(MZ mz = 0; mz < MAX_MZ; mz++) {
-        index->push_back(Bucket());
-    }
+	for(MZ mz = 0; mz < MAX_MZ; mz++) {
+		index->push_back(Bucket());
+	}
 
-    unsigned int unit_frag;
+	unsigned int unit_frag;
 
-    for(SID sid = 0; sid < data->size(); sid++) {
-        for(auto & peak: (*data)[sid]) {
-            unit_frag = peak.first/num_buckets;
-            (*index)[unit_frag].push_back(BucketPeak(sid, peak.second));
-        }
-    }
+	for(SID sid = 0; sid < data->size(); sid++) {
+		for(auto & peak: (*data)[sid]) {
+			unit_frag = peak.first/num_buckets;
+			(*index)[unit_frag].push_back(BucketPeak(sid, peak.second));
+		}
+	}
 
-    for(MZ mz = 0; mz < MAX_MZ; mz++) {
-        std::sort((*index)[mz].begin(), (*index)[mz].end());
-    }
+	for(MZ mz = 0; mz < MAX_MZ; mz++) {
+		std::sort((*index)[mz].begin(), (*index)[mz].end());
+	}
 
-    return index;
+	return index;
 }
 
 std::map<SID, Spectrum> *reconstruct_candidates(Index * index, Spectrum * query) {
 
-    std::map<SID, Spectrum> * reconstructed_spectra = new std::map<SID, Spectrum>;
+	std::map<SID, Spectrum> * reconstructed_spectra = new std::map<SID, Spectrum>;
 
-    for(auto & query_peak: *query) {
-        unsigned int unit_q_mz = query_peak.first / num_buckets;
-        for(auto & bucket_peak : (*index)[unit_q_mz]) {
-            (*reconstructed_spectra)[bucket_peak.first].push_back(Peak(query_peak.first, bucket_peak.second));
-        }
-    }
+	for(auto & query_peak: *query) {
+		unsigned int unit_q_mz = query_peak.first / num_buckets;
+		for(auto & bucket_peak : (*index)[unit_q_mz]) {
+			(*reconstructed_spectra)[bucket_peak.first].push_back(Peak(query_peak.first, bucket_peak.second));
+		}
+	}
 
-    return reconstructed_spectra;
+	return reconstructed_spectra;
 }
 
 
 int main(int argc, char * argv[]) {
 
-	if (argc != 3) {
-		std::cerr << "Usage: main <raw data file> <query file>\n";
+	if (argc != 4) {
+		std::cerr << "Usage: main <raw data file> <query file> <output json>\n";
 		exit(1);
 	}
 
@@ -189,12 +192,10 @@ int main(int argc, char * argv[]) {
 	// std::cerr << "raw_data=\n";
 	// dump_raw_data(raw_data);
 
- 
 	Spectrum *query = load_query(argv[2]);
 	// std::cerr << "query=\n";
 	// dump_spectrum(query);
 	// std::cerr << "\n";
-
 
 	// Here's where the interesting part starts
 
@@ -209,7 +210,7 @@ int main(int argc, char * argv[]) {
 	auto reconstruct_start = std::chrono::high_resolution_clock::now();
 	auto reconstructed_spectra = reconstruct_candidates(index, query);
 	auto reconstruct_end = std::chrono::high_resolution_clock::now();	
-	json_reconstruction(*reconstructed_spectra);
+	json_reconstruction(argv[3], *reconstructed_spectra);
 
 	std::cerr << "Found " << reconstructed_spectra->size() << " candidates \n";
 	std::cerr << "Building the index took " << (std::chrono::duration_cast<std::chrono::nanoseconds>(index_build_end - index_build_start).count()+0.0)/1e9 << " s\n";

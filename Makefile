@@ -6,7 +6,8 @@ default: main
 
 .PHONY:test
 test: main 
-#	./main aoeu aoeu aoeu |  ./check.py test-ref.json
+	./main data/804.mxs data/Query1.txt 804-Query1.json
+	./check.py 804-Query1.json  < data/804-Query1-ref.json
 
 .PHONY: clean
 clean:

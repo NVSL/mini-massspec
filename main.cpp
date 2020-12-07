@@ -21,8 +21,8 @@ typedef std::vector<BucketPeak> Bucket;
 
 typedef std::vector<Bucket> Index;
 
-static const MZ MAX_MZ = 2000;
-static const int num_buckets = 20; //# of bins per mz used for index
+static const MZ MAX_MZ = 20000;
+static const int num_buckets = 1; //# of bins per mz used for index
 
 RawData * load_raw_data(char *file) {
 	RawData * spectra = new RawData();
@@ -225,12 +225,12 @@ int main(int argc, char * argv[]) {
 	// dump_raw_data(raw_data);
 
 	std::vector<Spectrum> *queries = load_queries(argv[2]);
-	std::cerr << "queries=\n";
-	for(auto &s: *queries) {
-		dump_spectrum(&s);
-		std::cerr << "\n";
-	}
-	std::cerr << "\n";
+	// std::cerr << "queries=\n";
+	// for(auto &s: *queries) {
+	// 	dump_spectrum(&s);
+	// 	std::cerr << "\n";
+	// }
+	// std::cerr << "\n";
 
 	// Here's where the interesting part starts
 

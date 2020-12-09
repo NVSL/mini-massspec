@@ -82,11 +82,13 @@ void dump_raw_data(RawData* r) {
 }
 
 void dump_index(Index *index) {
-	for(MZ mz = 0; mz < MAX_MZ; mz++) {
-		std::cerr << "MZ = " << mz << ": ";
-		dump_spectrum(&(*index)[mz]);
-		std::cerr << "\n";
-	}
+    for(MZ mz = 0; mz < MAX_MZ; mz++) {
+        if(!(*index)[mz].empty()) {
+            std::cerr << "MZ = " << mz << ": ";
+            dump_spectrum(&(*index)[mz]);
+            std::cerr << "\n";
+        }
+    }
 }
 
 

@@ -28,7 +28,6 @@ RawData * load_raw_data(char *file) {
 	RawData * spectra = new RawData();
 	unsigned int file_id;
 	unsigned int num_spectra;           //total number of spectra inside the file
-	unsigned int offset;                //starting offset from the file
 	std::vector< std :: pair<unsigned int, unsigned int> > position; // starting position and ending position for each spectrum
 
 	std::ifstream in(file, std::ios::in | std::ios::binary);
@@ -46,7 +45,7 @@ RawData * load_raw_data(char *file) {
 		}
 
 		for (unsigned int spec_idx = 0; spec_idx < num_spectra; ++spec_idx) {
-			in.seekg(position[0].first * 4 + 16); //setting the position to read to the first spectrum
+			in.seekg(position[spec_idx].first * 4 + 16); //setting the position to read to the first spectrum
 			unsigned int size = position[spec_idx].second - position[spec_idx].first - 4;
 			Spectrum spectrum;
 			//Populating peak info per spectrum

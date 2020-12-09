@@ -23,16 +23,20 @@ static const int num_buckets = 20; //# of bins per mz used for index
 
 
 
-RawData * load_raw_data(char *file) {
+RawData * load_raw_data(char *file, int &total_spectra, int &num_peaks) {
     RawData * spectra = new RawData();
     unsigned int file_id;
     unsigned int num_spectra;           //total number of spectra inside the file
     std::vector< std :: pair<unsigned int, unsigned int> > position; // starting position and ending position for each spectrum
-
     std::ifstream in(file, std::ios::in | std::ios::binary);
     in.read((char*)&file_id, sizeof( unsigned int ));
     in.read((char*)&num_spectra, sizeof( unsigned int ));
     position.resize(num_spectra);
+
+    //total_spectra = 0 as input means to load all spectra from the DB
+    if (total_spectra == 0){
+        total_spectra = num_spectra;
+    }
 
     if (num_spectra > 0) {
         position[0].first = num_spectra + 2; //starting offset in the file of the first spectrum
@@ -43,12 +47,18 @@ RawData * load_raw_data(char *file) {
             in.read((char *) &position[spec_idx].second, sizeof(unsigned int)); //ending position
         }
 
-        for (unsigned int spec_idx = 0; spec_idx < num_spectra; ++spec_idx) {
+        for (unsigned int spec_idx = 0; spec_idx < total_spectra; ++spec_idx) {
             in.seekg(position[spec_idx].first * 4 + 16); //setting the offset to read the spectrum
-            unsigned int size = position[spec_idx].second - position[spec_idx].first - 4;
+            unsigned int size = position[spec_idx].second - position[spec_idx].first - 4; //total number of peaks inside the spectrum
+
+            //num_peaks = 0 as input means to load all peaks of the spectrum
+            if (num_peaks == 0 || num_peaks < size){
+                num_peaks = size;
+            }
+
             Spectrum spectrum;
             //Populating peak info per spectrum
-            for (int i = 0; i < size; ++i) {
+            for (int i = 0; i < num_peaks; ++i) {
                 unsigned int peak;
                 unsigned int mz;
                 in.read((char *) &peak, sizeof(unsigned int));
@@ -63,22 +73,22 @@ RawData * load_raw_data(char *file) {
 }
 
 void dump_spectrum(Spectrum *s) {
-	std::cerr << "[";
-	for(auto & p: *s) {
-		std::cerr << "[" << p.first << ", " << p.second << "],";
-	}
-	std::cerr << "]";
+    std::cerr << "[";
+    for(auto & p: *s) {
+        std::cerr << "[" << p.first << ", " << p.second << "],";
+    }
+    std::cerr << "]";
 }
 
 void dump_raw_data(RawData* r) {
 
-	int c = 0;
-	for(auto & s: *r) {
-		std::cerr << "SID=" << c;
-		dump_spectrum(&s);
-		c++;
-		std::cerr << "\n";
-	}
+    int c = 0;
+    for(auto & s: *r) {
+        std::cerr << "SID=" << c;
+        dump_spectrum(&s);
+        c++;
+        std::cerr << "\n";
+    }
 }
 
 void dump_index(Index *index) {
@@ -168,7 +178,9 @@ std::map<SID, Spectrum> *reconstruct_candidates(Index * index, Spectrum * query)
     for(auto & query_peak: *query) {
         unsigned int unit_q_mz = query_peak.first / num_buckets;
         for(auto & bucket_peak : (*index)[unit_q_mz]) {
-            (*reconstructed_spectra)[bucket_peak.first].push_back(Peak(query_peak.first, bucket_peak.second));
+            if ( bucket_peak.second ) {
+                (*reconstructed_spectra)[bucket_peak.first].push_back(Peak(query_peak.first, bucket_peak.second));
+            }
         }
     }
 
@@ -178,42 +190,52 @@ std::map<SID, Spectrum> *reconstruct_candidates(Index * index, Spectrum * query)
 
 int main(int argc, char * argv[]) {
 
-	if (argc != 3) {
-		std::cerr << "Usage: main <raw data file> <query file>\n";
-		exit(1);
-	}
+    if (argc != 3) {
+        std::cerr << "Usage: main <raw data file> <query file>\n";
+        exit(1);
+    }
 
-    unsigned int total_spectra;
+    /* Declare number of spectra you want to load from the database
+     * 0 - load all spectra from the file
+     * n - load first N spectra from the file
+     */
+    int total_spectra = 3;
 
-	RawData * raw_data = load_raw_data(argv[1]);
+    /* Declare number of peaks you want to load from each spectrum
+     * 0 - load all peaks from the spectrum
+     * n - load first N peaks from the spectrum
+    */
+    int num_peaks = 5;
+
+    RawData * raw_data = load_raw_data(argv[1], total_spectra, num_peaks);
     total_spectra = raw_data->size();
-	std::cerr << "raw_data=\n";
-	dump_raw_data(raw_data);
-
- 
-	Spectrum *query = load_query(argv[2]);
-	std::cerr << "query=\n";
-	dump_spectrum(query);
-	std::cerr << "\n";
+    std::cerr << "raw_data=\n";
+    dump_raw_data(raw_data);
 
 
-	// Here's where the interesting part starts
+    Spectrum *query = load_query(argv[2]);
+    std::cerr << "query=\n";
+    dump_spectrum(query);
+    std::cerr << "\n";
 
-	auto index_build_start = std::chrono::high_resolution_clock::now();
-	Index * index = build_index(raw_data);
-	auto index_build_end = std::chrono::high_resolution_clock::now();
 
-	delete raw_data;
-		
-	dump_index(index);
+    // Here's where the interesting part starts
 
-	auto reconstruct_start = std::chrono::high_resolution_clock::now();
-	auto reconstructed_spectra = reconstruct_candidates(index, query);
-	auto reconstruct_end = std::chrono::high_resolution_clock::now();	
-	json_reconstruction(*reconstructed_spectra);
+    auto index_build_start = std::chrono::high_resolution_clock::now();
+    Index * index = build_index(raw_data);
+    auto index_build_end = std::chrono::high_resolution_clock::now();
+
+    delete raw_data;
+
+    dump_index(index);
+
+    auto reconstruct_start = std::chrono::high_resolution_clock::now();
+    auto reconstructed_spectra = reconstruct_candidates(index, query);
+    auto reconstruct_end = std::chrono::high_resolution_clock::now();
+    json_reconstruction(*reconstructed_spectra);
 
     std::cerr << "Found " << reconstructed_spectra->size() << " candidates among "<< total_spectra << " spectra \n" ;
-	std::cerr << "Building the index took " << (std::chrono::duration_cast<std::chrono::nanoseconds>(index_build_end - index_build_start).count()+0.0)/1e9 << " s\n";
-	std::cerr << "Reconstruction took     " << (std::chrono::duration_cast<std::chrono::nanoseconds>(reconstruct_end - reconstruct_start).count()+0.0)/1e9 << " s\n";
+    std::cerr << "Building the index took " << (std::chrono::duration_cast<std::chrono::nanoseconds>(index_build_end - index_build_start).count()+0.0)/1e9 << " s\n";
+    std::cerr << "Reconstruction took     " << (std::chrono::duration_cast<std::chrono::nanoseconds>(reconstruct_end - reconstruct_start).count()+0.0)/1e9 << " s\n";
 }
 

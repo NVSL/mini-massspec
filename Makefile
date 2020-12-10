@@ -24,3 +24,15 @@ test: main  data/804.mxs
 .PHONY: clean
 clean:
 	rm -rf main
+
+.PHONY: tgz test-tgz
+tgz:
+
+task.tgz:
+	tar czf $@ $$(git ls-tree -r --name-only master)
+
+test-tgz: task.tgz
+	rm -rf task-test
+	mkdir task-test
+	cd task-test; tar xzf ../$<
+	make test

@@ -203,24 +203,26 @@ int main(int argc, char * argv[]) {
 	/* Declare number of spectra you want to load from the database
      * 0 - load all spectra from the file
      * n - load first N spectra from the file
+     * for initial test n = 3
      */
     int total_spectra = 3;
 
     /* Declare number of peaks you want to load from each spectrum
      * 0 - load all peaks from the spectrum
-     * n - load first N peaks from the spectrum
+     * m - load first N peaks from the spectrum
+     * for initial test m = 5
     */
     int num_peaks = 5;
 
 
-	RawData * raw_data = load_raw_data(argv[1]);
-	std::cerr << "raw_data=\n";
-	dump_raw_data(raw_data);
+	RawData * raw_data = load_raw_data(argv[1], total_spectra, num_peaks);
+	//std::cerr << "raw_data=\n";
+	//dump_raw_data(raw_data);
 
 	Spectrum *query = load_query(argv[2]);
-	std::cerr << "query=\n";
-	dump_spectrum(query);
-	std::cerr << "\n";
+	//std::cerr << "query=\n";
+	//dump_spectrum(query);
+	//std::cerr << "\n";
 
 	// Here's where the interesting part starts
 

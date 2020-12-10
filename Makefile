@@ -9,6 +9,11 @@ setup: data/804.mxs
 data/804.mxs: data/804.mxs.gz
 	gunzip -k $<
 
+.PHONY: demo
+demo: main
+	DEMO=yes ./main data/804.mxs data/Query1.txt demo.json
+	cat demo.json
+
 .PHONY:test
 test: main  data/804.mxs
 	./main data/804.mxs data/Query1.txt 804-Query1.json

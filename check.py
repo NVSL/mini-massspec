@@ -10,8 +10,8 @@ reference = json.load(open(sys.argv[1]))
 print("checking...")
 if data != reference:
     print("Result does not match reference.")
-    print(f"reference={reference}")
-    print(f"data={data}")
+    #print(f"reference={reference}")
+    #print(f"data={data}")
     sys.exit(1)
 else:
     print("Correct!")

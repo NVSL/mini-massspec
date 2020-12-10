@@ -167,7 +167,9 @@ Index * build_index(RawData * data) {
 	for(SID sid = 0; sid < data->size(); sid++) {
 		for(auto & peak: (*data)[sid]) {
 			unit_frag = peak.first/num_buckets;
-			(*index)[unit_frag].push_back(BucketPeak(sid, peak.second));
+            if (unit_frag < MAX_MZ) {
+                (*index)[unit_frag].push_back(BucketPeak(sid, peak.second));
+            }
 		}
 	}
 
@@ -203,16 +205,16 @@ int main(int argc, char * argv[]) {
 	/* Declare number of spectra you want to load from the database
      * 0 - load all spectra from the file
      * n - load first N spectra from the file
-     * for initial test n = 3
+     * for initial test in example n = 3
      */
-    int total_spectra = 3;
+    int total_spectra = 0;
 
     /* Declare number of peaks you want to load from each spectrum
      * 0 - load all peaks from the spectrum
      * m - load first N peaks from the spectrum
-     * for initial test m = 5
+     * for initial test in example m = 5
     */
-    int num_peaks = 5;
+    int num_peaks = 0;
 
 
 	RawData * raw_data = load_raw_data(argv[1], total_spectra, num_peaks);
@@ -232,7 +234,7 @@ int main(int argc, char * argv[]) {
 
 	delete raw_data;
 		
-	dump_index(index);
+	//dump_index(index);
 
 	auto reconstruct_start = std::chrono::high_resolution_clock::now();
 	auto reconstructed_spectra = reconstruct_candidates(index, query);
